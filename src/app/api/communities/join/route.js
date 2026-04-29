@@ -41,6 +41,8 @@ export async function POST(req) {
 
     return NextResponse.json({ message: 'Topluluğa başarıyla katıldınız.' }, { status: 200 });
   } catch (error) {
-    return NextResponse.json({ error: error.message }, { status: 401 });
+    console.error('Join Error:', error);
+    const status = error.message.includes('token') || error.message.includes('auth') ? 401 : 500;
+    return NextResponse.json({ error: error.message }, { status });
   }
 }

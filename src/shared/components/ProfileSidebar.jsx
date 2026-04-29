@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import apiClient from '@/shared/lib/apiClient';
+
 
 export default function ProfileSidebar() {
   const pathname = usePathname();
@@ -16,35 +18,16 @@ export default function ProfileSidebar() {
       setLoading(true);
       setError(null);
       try {
-        const token = localStorage.getItem('token');
-        if (!token) {
-          router.push('/');
-          return;
-        }
-
-        const storedUser = localStorage.getItem('user');
-        if (storedUser) {
-          try {
-            setUser(JSON.parse(storedUser));
-          } catch(e) {}
-        }
-
-        const res = await fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } });
-        if (res.ok) {
-          const data = await res.json();
-          setUser(data);
-          localStorage.setItem('user', JSON.stringify(data));
-        } else if (res.status === 401) {
-          setError('Oturum süresi doldu veya geçersiz. Lütfen tekrar giriş yapın.');
-          localStorage.clear();
-          setTimeout(() => router.push('/'), 1500);
-        } else {
-          const errorData = await res.json();
-          setError(errorData.error || 'Veri alınamadı, lütfen tekrar deneyin.');
+        const data = await apiClient.get('/api/auth/me');
+        if (data.user) {
+          setUser(data.user);
         }
       } catch (err) {
-        console.error(err);
-        setError('Bağlantı hatası oluştu. Lütfen tekrar deneyin.');
+        console.error('ProfileSidebar fetch error:', err);
+        setError(err.message || 'Veri alınamadı.');
+        if (err.status === 401) {
+          setTimeout(() => router.push('/'), 1500);
+        }
       } finally {
         setLoading(false);
       }

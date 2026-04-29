@@ -20,7 +20,7 @@ export default function EventCard({ event }) {
           <span className="px-4 py-1.5 rounded-xl bg-blue-600 text-[10px] font-black uppercase tracking-wider backdrop-blur-md shadow-lg shadow-blue-500/20">
             {event.category?.name || 'Etkinlik'}
           </span>
-          {event.isNew && (
+          {event.is_new && (
             <span className="px-4 py-1.5 rounded-xl bg-emerald-500 text-[10px] font-black uppercase tracking-wider backdrop-blur-md">
               YENİ
             </span>

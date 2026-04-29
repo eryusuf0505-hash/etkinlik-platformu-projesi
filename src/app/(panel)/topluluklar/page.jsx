@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/shared/components/Navbar';
+import apiClient from '@/shared/lib/apiClient';
+
 
 export default function CommunitiesPage() {
   const [activeCategory, setActiveCategory] = useState('Hepsi');
@@ -12,53 +14,34 @@ export default function CommunitiesPage() {
 
   useEffect(() => {
     const fetchMe = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) return;
       try {
-        const res = await fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } });
-        if (res.ok) {
-          const data = await res.json();
-          setJoinedCommunities(data.joinedCommunities || []);
-        }
-      } catch (err) {}
+        const data = await apiClient.get('/api/auth/me');
+        setJoinedCommunities(data.user?.joinedCommunities || []);
+      } catch (err) {
+        console.error('Me fetch error:', err);
+      }
     };
     fetchMe();
   }, []);
 
   const handleJoin = async (comm) => {
-    const token = localStorage.getItem('token');
-    if (!token) {
-      alert('Topluluklara katılmak için giriş yapmalısınız.');
-      router.push('/login');
-      return;
-    }
-
-    if (joinedCommunities.some(c => c._id === comm._id || c.name === comm.name)) {
-      router.push('/mesajlar');
-      return;
-    }
-
     try {
-      const res = await fetch('/api/communities/join', {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ communityId: comm._id })
-      });
-
-      if (res.ok) {
-        setJoinedCommunities(prev => [...prev, comm]);
-        alert('Topluluğa katıldınız! Şimdi sohbet edebilirsiniz.');
+      if (joinedCommunities.some(c => c._id === comm._id || c.name === comm.name)) {
         router.push('/mesajlar');
-      } else {
-        const data = await res.json();
-        alert(data.error || 'Bir hata oluştu.');
+        return;
       }
+
+      const data = await apiClient.post('/api/communities/join', { communityId: comm._id });
+      setJoinedCommunities(prev => [...prev, comm]);
+      alert('Topluluğa katıldınız! Şimdi sohbet edebilirsiniz.');
+      router.push('/mesajlar');
     } catch (err) {
-      console.error(err);
-      alert('Bağlantı hatası.');
+      if (err.status === 401) {
+        alert('Topluluklara katılmak için giriş yapmalısınız.');
+        router.push('/login');
+      } else {
+        alert(err.message || 'Bağlantı hatası.');
+      }
     }
   };
 
@@ -75,13 +58,12 @@ export default function CommunitiesPage() {
         if (activeCategory !== 'Hepsi') queryParams.append('category', activeCategory);
         if (searchQuery) queryParams.append('search', searchQuery);
 
-        const res = await fetch(`/api/communities?${queryParams.toString()}`);
-        const data = await res.json();
-        
-        const fetched = Array.isArray(data) ? data : (data.items || []);
+        const data = await apiClient.get(`/api/communities?${queryParams.toString()}`);
+        const fetched = Array.isArray(data) ? data : (data.data || data.items || []);
+
         setCommunities(fetched);
       } catch (err) {
-        console.error(err);
+        console.error('Fetch communities error:', err);
         setCommunities([]);
       } finally {
         setLoading(false);

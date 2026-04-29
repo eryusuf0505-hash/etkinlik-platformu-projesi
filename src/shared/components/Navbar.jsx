@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import Link from 'next/link';
 import { usePathname, useRouter } from 'next/navigation';
+import apiClient from '@/shared/lib/apiClient';
+
 
 export default function Navbar() {
   const pathname = usePathname();
@@ -12,16 +14,23 @@ export default function Navbar() {
   const [currentUser, setCurrentUser] = useState(null);
 
   useEffect(() => {
-    const token = localStorage.getItem('token');
-    setIsLoggedIn(!!token);
+    const fetchMe = async () => {
+      try {
+        const data = await apiClient.get('/api/auth/me');
+        if (data.user) {
+          setCurrentUser(data.user);
+          setIsLoggedIn(true);
+        }
+      } catch (err) {
+        console.error('Navbar me fetch error:', err);
+        setIsLoggedIn(false);
+        setCurrentUser(null);
+      }
+    };
     
+    const token = localStorage.getItem('token');
     if (token) {
-      fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } })
-        .then(res => res.json())
-        .then(data => {
-          if (!data.error) setCurrentUser(data);
-        })
-        .catch(console.error);
+      fetchMe();
     }
   }, []);
 

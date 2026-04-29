@@ -44,7 +44,13 @@ const eventSchema = new mongoose.Schema({
     type: String,
     trim: true
   },
+  is_new: {
+    type: Boolean,
+    default: false
+  },
+
   ...baseSchemaFields
+
 }, {
   ...baseSchemaOptions
 });

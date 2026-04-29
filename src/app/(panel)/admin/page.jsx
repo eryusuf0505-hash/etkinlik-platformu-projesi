@@ -3,6 +3,8 @@
 import { useState, useEffect } from 'react';
 import { useRouter } from 'next/navigation';
 import Navbar from '@/shared/components/Navbar';
+import apiClient from '@/shared/lib/apiClient';
+
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState('event'); // 'event', 'community', or 'manage'
@@ -15,51 +17,43 @@ export default function AdminPage() {
 
   const [eventData, setEventData] = useState({ title: '', description: '', city: '', date: '', imageUrl: '', category: '', price: 0, bankAccount: '' });
   const [communityData, setCommunityData] = useState({ name: '', category: '', icon: '', description: '', memberCount: 1 });
+  const [editMode, setEditMode] = useState(false);
+  const [editingId, setEditingId] = useState(null);
 
   useEffect(() => {
+  useEffect(() => {
     const checkAdmin = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        router.push('/login');
-        return;
-      }
       try {
-        const res = await fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } });
-        if (res.ok) {
-          const user = await res.json();
-          if (user.role === 'admin') {
-            setIsAdmin(true);
-            setCurrentUser(user);
-            fetchData();
-          } else {
-            setIsAdmin(false);
-          }
+        const data = await apiClient.get('/api/auth/me');
+        if (data.user?.role === 'admin') {
+          setIsAdmin(true);
+          setCurrentUser(data.user);
+          fetchData();
         } else {
-          router.push('/login');
+          setIsAdmin(false);
         }
       } catch (err) {
-        setIsAdmin(false);
+        console.error('Admin check error:', err);
+        if (err.status === 401) router.push('/login');
+        else setIsAdmin(false);
       }
     };
     
     const fetchData = async () => {
       try {
-        const [evRes, commRes] = await Promise.all([
-          fetch('/api/events'),
-          fetch('/api/communities')
+        const [evData, commData] = await Promise.all([
+          apiClient.get('/api/events'),
+          apiClient.get('/api/communities')
         ]);
-        if (evRes.ok) {
-          const evData = await evRes.json();
-          setEvents(evData.data || evData);
-        }
-        if (commRes.ok) {
-          const commData = await commRes.json();
-          setCommunities(commData.data || commData);
-        }
+        setEvents(Array.isArray(evData) ? evData : (evData.data || evData.items || []));
+        setCommunities(Array.isArray(commData) ? commData : (commData.data || commData.items || []));
       } catch (err) {
-        console.error(err);
+        console.error('Fetch data error:', err);
       }
     };
+
+    checkAdmin();
+  }, [router]);
 
     checkAdmin();
   }, [router]);
@@ -68,33 +62,31 @@ export default function AdminPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
       const payload = {
-        title: eventData.title,
-        description: eventData.description,
-        city: eventData.city,
+        ...eventData,
         date: new Date(eventData.date).toISOString(),
-        imageUrl: eventData.imageUrl,
-        category: eventData.category,
-        price: Number(eventData.price),
-        bankAccount: eventData.bankAccount
+        price: Number(eventData.price)
       };
       
-      const res = await fetch('/api/events', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify(payload)
-      });
-      
-      if (res.ok) {
-        alert('Etkinlik başarıyla oluşturuldu!');
-        setEventData({ title: '', description: '', city: '', date: '', imageUrl: '', category: '', price: 0, bankAccount: '' });
+      if (editMode) {
+        await apiClient.request(`/api/events/${editingId}`, {
+          method: 'PATCH',
+          body: JSON.stringify(payload)
+        });
+        alert('Etkinlik güncellendi!');
       } else {
-        const data = await res.json();
-        alert(data.error || 'Etkinlik oluşturulamadı.');
+        await apiClient.post('/api/events', payload);
+        alert('Etkinlik başarıyla oluşturuldu!');
       }
+      
+      setEventData({ title: '', description: '', city: '', date: '', imageUrl: '', category: '', price: 0, bankAccount: '' });
+      setEditMode(false);
+      setEditingId(null);
+      // Refresh list
+      const evData = await apiClient.get('/api/events');
+      setEvents(Array.isArray(evData) ? evData : (evData.data || evData.items || []));
     } catch (err) {
-      alert('Ağ hatası.');
+      alert(err.message || 'Bir hata oluştu.');
     } finally {
       setLoading(false);
     }
@@ -104,22 +96,25 @@ export default function AdminPage() {
     e.preventDefault();
     setLoading(true);
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch('/api/communities', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Authorization': `Bearer ${token}` },
-        body: JSON.stringify(communityData)
-      });
-      
-      if (res.ok) {
-        alert('Topluluk başarıyla oluşturuldu!');
-        setCommunityData({ name: '', category: '', icon: '', description: '', memberCount: 1 });
+      if (editMode) {
+        await apiClient.request(`/api/communities/${editingId}`, {
+          method: 'PATCH',
+          body: JSON.stringify(communityData)
+        });
+        alert('Topluluk güncellendi!');
       } else {
-        const data = await res.json();
-        alert(data.error || 'Topluluk oluşturulamadı.');
+        await apiClient.post('/api/communities', communityData);
+        alert('Topluluk başarıyla oluşturuldu!');
       }
+      
+      setCommunityData({ name: '', category: '', icon: '', description: '', memberCount: 1 });
+      setEditMode(false);
+      setEditingId(null);
+      // Refresh list
+      const commData = await apiClient.get('/api/communities');
+      setCommunities(Array.isArray(commData) ? commData : (commData.data || commData.items || []));
     } catch (err) {
-      alert('Ağ hatası.');
+      alert(err.message || 'Bir hata oluştu.');
     } finally {
       setLoading(false);
     }
@@ -128,41 +123,54 @@ export default function AdminPage() {
   const handleDeleteEvent = async (id) => {
     if (!window.confirm('Bu etkinliği silmek istediğinizden emin misiniz?')) return;
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`/api/events/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        setEvents(prev => prev.filter(e => e._id !== id));
-        alert('Etkinlik silindi.');
-      } else {
-        const data = await res.json();
-        alert(data.error || 'Silme işlemi başarısız.');
-      }
+      await apiClient.delete(`/api/events/${id}`);
+      setEvents(prev => prev.filter(e => e._id !== id));
+      alert('Etkinlik silindi.');
     } catch (err) {
-      alert('Hata oluştu.');
+      alert(err.message || 'Silme işlemi başarısız.');
     }
   };
 
   const handleDeleteCommunity = async (id) => {
     if (!window.confirm('Bu topluluğu silmek istediğinizden emin misiniz?')) return;
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`/api/communities/${id}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      if (res.ok) {
-        setCommunities(prev => prev.filter(c => c._id !== id));
-        alert('Topluluk silindi.');
-      } else {
-        const data = await res.json();
-        alert(data.error || 'Silme işlemi başarısız.');
-      }
+      await apiClient.delete(`/api/communities/${id}`);
+      setCommunities(prev => prev.filter(c => c._id !== id));
+      alert('Topluluk silindi.');
     } catch (err) {
-      alert('Hata oluştu.');
+      alert(err.message || 'Silme işlemi başarısız.');
     }
+  };
+
+  const handleEditEvent = (event) => {
+    setEventData({
+      title: event.title,
+      description: event.description,
+      city: event.city,
+      date: new Date(event.date).toISOString().split('T')[0],
+      imageUrl: event.imageUrl,
+      category: typeof event.category === 'string' ? event.category : event.category?.name || '',
+      price: event.price,
+      bankAccount: event.bankAccount || ''
+    });
+    setEditingId(event._id);
+    setEditMode(true);
+    setActiveTab('event');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
+  };
+
+  const handleEditCommunity = (comm) => {
+    setCommunityData({
+      name: comm.name,
+      category: comm.category,
+      icon: comm.icon,
+      description: comm.description,
+      memberCount: comm.memberCount || 1
+    });
+    setEditingId(comm._id);
+    setEditMode(true);
+    setActiveTab('community');
+    window.scrollTo({ top: 0, behavior: 'smooth' });
   };
 
   if (isAdmin === null) {
@@ -215,7 +223,18 @@ export default function AdminPage() {
         <div className="glass p-10 rounded-[3rem]">
           {activeTab === 'event' ? (
             <form onSubmit={handleEventSubmit} className="space-y-6">
-              <h2 className="text-2xl font-black text-white mb-6">Etkinlik Detayları</h2>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-black text-white">{editMode ? 'Etkinliği Düzenle' : 'Etkinlik Detayları'}</h2>
+                {editMode && (
+                  <button 
+                    type="button" 
+                    onClick={() => { setEditMode(false); setEditingId(null); setEventData({ title: '', description: '', city: '', date: '', imageUrl: '', category: '', price: 0, bankAccount: '' }); }}
+                    className="text-xs font-bold text-red-400 hover:underline"
+                  >
+                    Vazgeç
+                  </button>
+                )}
+              </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
@@ -258,12 +277,23 @@ export default function AdminPage() {
               </div>
 
               <button type="submit" disabled={loading} className="w-full py-5 rounded-2xl bg-red-600 text-white font-black text-sm hover:bg-red-500 transition-all shadow-2xl shadow-red-600/40 disabled:opacity-50 active:scale-95">
-                {loading ? 'Kaydediliyor...' : 'ETKİNLİĞİ OLUŞTUR'}
+                {loading ? 'Kaydediliyor...' : (editMode ? 'ETKİNLİĞİ GÜNCELLE' : 'ETKİNLİĞİ OLUŞTUR')}
               </button>
             </form>
           ) : activeTab === 'community' ? (
             <form onSubmit={handleCommunitySubmit} className="space-y-6">
-              <h2 className="text-2xl font-black text-white mb-6">Topluluk Detayları</h2>
+              <div className="flex items-center justify-between mb-6">
+                <h2 className="text-2xl font-black text-white">{editMode ? 'Topluluğu Düzenle' : 'Topluluk Detayları'}</h2>
+                {editMode && (
+                  <button 
+                    type="button" 
+                    onClick={() => { setEditMode(false); setEditingId(null); setCommunityData({ name: '', category: '', icon: '', description: '', memberCount: 1 }); }}
+                    className="text-xs font-bold text-red-400 hover:underline"
+                  >
+                    Vazgeç
+                  </button>
+                )}
+              </div>
               
               <div className="grid grid-cols-1 md:grid-cols-2 gap-6">
                 <div className="space-y-2">
@@ -286,7 +316,7 @@ export default function AdminPage() {
               </div>
 
               <button type="submit" disabled={loading} className="w-full py-5 rounded-2xl bg-red-600 text-white font-black text-sm hover:bg-red-500 transition-all shadow-2xl shadow-red-600/40 disabled:opacity-50 active:scale-95">
-                {loading ? 'Kaydediliyor...' : 'TOPLULUĞU OLUŞTUR'}
+                {loading ? 'Kaydediliyor...' : (editMode ? 'TOPLULUĞU GÜNCELLE' : 'TOPLULUĞU OLUŞTUR')}
               </button>
             </form>
           ) : (
@@ -312,7 +342,10 @@ export default function AdminPage() {
                           <p className="text-xs text-gray-500">{event.city} • {new Date(event.date).toLocaleDateString('tr-TR')}</p>
                         </div>
                       </div>
-                      <button onClick={() => handleDeleteEvent(event._id)} className="p-3 text-gray-500 hover:text-red-500 transition-colors">🗑️</button>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => handleEditEvent(event)} className="p-3 text-gray-500 hover:text-blue-500 transition-colors">✏️</button>
+                        <button onClick={() => handleDeleteEvent(event._id)} className="p-3 text-gray-500 hover:text-red-500 transition-colors">🗑️</button>
+                      </div>
                     </div>
                   ))}
                 </div>
@@ -339,7 +372,10 @@ export default function AdminPage() {
                           <p className="text-xs text-gray-500">{comm.category}</p>
                         </div>
                       </div>
-                      <button onClick={() => handleDeleteCommunity(comm._id)} className="p-3 text-gray-500 hover:text-red-500 transition-colors">🗑️</button>
+                      <div className="flex items-center gap-2">
+                        <button onClick={() => handleEditCommunity(comm)} className="p-3 text-gray-500 hover:text-blue-500 transition-colors">✏️</button>
+                        <button onClick={() => handleDeleteCommunity(comm._id)} className="p-3 text-gray-500 hover:text-red-500 transition-colors">🗑️</button>
+                      </div>
                     </div>
                   ))}
                 </div>

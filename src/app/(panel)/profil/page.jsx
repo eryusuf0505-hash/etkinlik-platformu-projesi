@@ -2,13 +2,33 @@
 
 import Navbar from '@/shared/components/Navbar';
 import ProfileSidebar from '@/shared/components/ProfileSidebar';
+import { useState, useEffect } from 'react';
+import apiClient from '@/shared/lib/apiClient';
+
 
 export default function ProfilePage() {
+  const [currentUser, setCurrentUser] = useState(null);
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const fetchMe = async () => {
+      try {
+        const data = await apiClient.get('/api/auth/me');
+        setCurrentUser(data.user);
+      } catch (err) {
+        console.error('Profile fetch error:', err);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchMe();
+  }, []);
+
   const stats = [
-    { name: 'Katıldığım Etkinlikler', value: '12', icon: '📅' },
-    { name: 'Aktif Biletler', value: '3', icon: '🎟️' },
-    { name: 'Topluluklarım', value: '5', icon: '👥' },
-    { name: 'Favoriler', value: '24', icon: '❤️' },
+    { name: 'Katıldığım Etkinlikler', value: currentUser?.stats?.eventCount || 0, icon: '📅' },
+    { name: 'Aktif Biletler', value: currentUser?.stats?.ticketCount || 0, icon: '🎟️' },
+    { name: 'Topluluklarım', value: currentUser?.stats?.communityCount || 0, icon: '👥' },
+    { name: 'Favoriler', value: currentUser?.stats?.favoriteCount || 0, icon: '❤️' },
   ];
 
   return (
@@ -24,9 +44,9 @@ export default function ProfilePage() {
             {/* Stats Grid */}
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-6">
               {stats.map((stat) => (
-                <div key={stat.name} className="glass p-8 rounded-[2.5rem] hover:scale-105 transition-all duration-500">
+                <div key={stat.name} className={`glass p-8 rounded-[2.5rem] hover:scale-105 transition-all duration-500 ${loading ? 'animate-pulse' : ''}`}>
                   <div className="text-3xl mb-4">{stat.icon}</div>
-                  <div className="text-3xl font-black text-white mb-1">{stat.value}</div>
+                  <div className="text-3xl font-black text-white mb-1">{loading ? '...' : stat.value}</div>
                   <div className="text-xs font-black text-gray-500 uppercase tracking-widest">{stat.name}</div>
                 </div>
               ))}

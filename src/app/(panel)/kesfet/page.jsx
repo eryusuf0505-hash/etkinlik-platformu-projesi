@@ -4,6 +4,8 @@ import { useState, useEffect } from 'react';
 import Navbar from '@/shared/components/Navbar';
 import EventCard from '@/features/events/components/EventCard';
 import CheckoutModal from '@/features/events/components/CheckoutModal';
+import apiClient from '@/shared/lib/apiClient';
+
 
 export default function ExplorePage() {
   const [events, setEvents] = useState([]);
@@ -21,46 +23,6 @@ export default function ExplorePage() {
     "Adana", "Adıyaman", "Afyonkarahisar", "Ağrı", "Amasya", "Ankara", "Antalya", "Artvin", "Aydın", "Balıkesir", "Bilecik", "Bingöl", "Bitlis", "Bolu", "Burdur", "Bursa", "Çanakkale", "Çankırı", "Çorum", "Denizli", "Diyarbakır", "Edirne", "Elazığ", "Erzincan", "Erzurum", "Eskişehir", "Gaziantep", "Giresun", "Gümüşhane", "Hakkari", "Hatay", "Isparta", "Mersin", "İstanbul", "İzmir", "Kars", "Kastamonu", "Kayseri", "Kırklareli", "Kırşehir", "Kocaeli", "Konya", "Kütahya", "Malatya", "Manisa", "Kahramanmaraş", "Mardin", "Muğla", "Muş", "Nevşehir", "Niğde", "Ordu", "Rize", "Sakarya", "Samsun", "Siirt", "Sinop", "Sivas", "Tekirdağ", "Tokat", "Trabzon", "Tunceli", "Şanlıurfa", "Uşak", "Van", "Yozgat", "Zonguldak", "Aksaray", "Bayburt", "Karaman", "Kırıkkale", "Batman", "Şırnak", "Bartın", "Ardahan", "Iğdır", "Yalova", "Karabük", "Kilis", "Osmaniye", "Düzce"
   ].sort((a, b) => a.localeCompare(b, 'tr'));
 
-  const allMockEvents = [
-    {
-      _id: '662000000000000000000101',
-      title: 'Afterlife Istanbul 2024',
-      description: 'Tale Of Us presents Afterlife. An odyssey through the realm of consciousness.',
-      city: 'İstanbul',
-      date: new Date('2024-08-15'),
-      imageUrl: 'https://images.unsplash.com/photo-1470225620780-dba8ba36b745?q=80&w=2070&auto=format&fit=crop',
-      category: { name: 'Konser' },
-      isNew: true
-    },
-    {
-      _id: '662000000000000000000102',
-      title: 'Pist Günleri: Intercity Istanbul Park',
-      description: 'Kendi aracınla Formula 1 pistinde hız yapma deneyimi. Tüm güvenlik önlemleri alınmıştır.',
-      city: 'İstanbul',
-      date: new Date('2024-09-10'),
-      imageUrl: 'https://images.unsplash.com/photo-1541890289-b86df5bafd81?q=80&w=1974&auto=format&fit=crop',
-      category: { name: 'Otomobil' },
-      isNew: true
-    },
-    {
-      _id: '662000000000000000000103',
-      title: 'Tech Summit 2024',
-      description: 'Geleceğin teknolojileri, yapay zeka ve web3 dünyası bu zirvede buluşuyor.',
-      city: 'Ankara',
-      date: new Date('2024-09-20'),
-      imageUrl: 'https://images.unsplash.com/photo-1540575861501-7ad0582373f0?q=80&w=2070&auto=format&fit=crop',
-      category: { name: 'Teknoloji' }
-    },
-    {
-      _id: '662000000000000000000104',
-      title: 'Modifiye & Tuning Fest',
-      description: 'Türkiye\'nin en iyi modifiye araçları ödül için yarışıyor. DJ performansları ve şovlar.',
-      city: 'İzmir',
-      date: new Date('2024-08-25'),
-      imageUrl: 'https://images.unsplash.com/photo-1511919884226-fd3cad34687c?q=80&w=2070&auto=format&fit=crop',
-      category: { name: 'Otomobil' }
-    }
-  ];
 
   useEffect(() => {
     const fetchEvents = async () => {
@@ -69,30 +31,20 @@ export default function ExplorePage() {
         const queryParams = new URLSearchParams();
         if (filters.city) queryParams.append('city', filters.city);
         
-        const res = await fetch(`/api/events?${queryParams.toString()}`);
-        const data = await res.json();
-        
+        const data = await apiClient.get(`/api/events?${queryParams.toString()}`);
         let apiEvents = Array.isArray(data) ? data : (data.data || data.items || []);
         
-        // Combine mock data with API data
-        let combined = [...apiEvents, ...allMockEvents];
-
-        // Apply filters locally for mock data
-        combined = combined.filter(event => {
-          const cityMatch = !filters.city || event.city.toLowerCase() === filters.city.toLowerCase();
-          const categoryMatch = activeCategories.length === 0 || activeCategories.includes(event.category?.name || event.category);
-          return cityMatch && categoryMatch;
-        });
+        // Local category filtering if needed, but ideally backend should handle this
+        if (activeCategories.length > 0) {
+          apiEvents = apiEvents.filter(event => 
+            activeCategories.includes(event.category?.name || event.category)
+          );
+        }
         
-        setEvents(combined);
+        setEvents(apiEvents);
       } catch (err) {
-        console.error(err);
-        // Fallback to mock data if API fails
-        setEvents(allMockEvents.filter(event => {
-            const cityMatch = !filters.city || event.city.toLowerCase() === filters.city.toLowerCase();
-            const categoryMatch = activeCategories.length === 0 || activeCategories.includes(event.category?.name || event.category);
-            return cityMatch && categoryMatch;
-        }));
+        console.error('Fetch events error:', err);
+        setEvents([]);
       } finally {
         setLoading(false);
       }

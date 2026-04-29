@@ -15,7 +15,8 @@ export async function GET(req) {
     if (searchParams.get('search')) filters.name = { $regex: searchParams.get('search'), $options: 'i' };
 
     const result = await communityRepository.findMany(filters);
-    return NextResponse.json(result.data, { status: 200 });
+    return NextResponse.json(result, { status: 200 });
+
   } catch (error) {
     return NextResponse.json({ error: error.message }, { status: 400 });
   }

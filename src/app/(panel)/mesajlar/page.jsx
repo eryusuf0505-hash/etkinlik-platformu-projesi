@@ -3,6 +3,8 @@
 import { useState, useEffect, useRef } from 'react';
 import Link from 'next/link';
 import Navbar from '@/shared/components/Navbar';
+import apiClient from '@/shared/lib/apiClient';
+
 
 export default function MessagesPage() {
   const [joinedCommunities, setJoinedCommunities] = useState([]);
@@ -15,31 +17,22 @@ export default function MessagesPage() {
 
   useEffect(() => {
     const fetchMe = async () => {
-      const token = localStorage.getItem('token');
-      if (!token) {
-        setLoading(false);
-        setCurrentUser(null);
-        setJoinedCommunities([]);
-        return;
-      }
       try {
-        const res = await fetch('/api/auth/me', { headers: { 'Authorization': `Bearer ${token}` } });
-        if (res.ok) {
-          const user = await res.json();
-          setCurrentUser(user);
-          const joined = user.joinedCommunities || [];
+        const data = await apiClient.get('/api/auth/me');
+        if (data.user) {
+          setCurrentUser(data.user);
+          const joined = data.user.joinedCommunities || [];
           setJoinedCommunities(joined);
-          if (joined.length > 0) {
+          if (joined.length > 0 && !activeCommunity) {
             setActiveCommunity(joined[0]);
           }
-        } else {
-          // If token invalid, clear it
-          localStorage.removeItem('token');
+        }
+      } catch (err) {
+        console.error('Me fetch error:', err);
+        if (err.status === 401) {
           setCurrentUser(null);
           setJoinedCommunities([]);
         }
-      } catch (err) {
-        console.error(err);
       } finally {
         setLoading(false);
       }
@@ -51,17 +44,14 @@ export default function MessagesPage() {
     if (!activeCommunity || !currentUser) return;
     const fetchMessages = async () => {
       try {
-        const res = await fetch(`/api/communities/${activeCommunity._id || activeCommunity.name}/messages`);
-        if (res.ok) {
-          const data = await res.json();
-          setMessages(data);
-        }
+        const data = await apiClient.get(`/api/communities/${activeCommunity._id || activeCommunity.name}/messages`);
+        setMessages(data);
       } catch (err) {
-        console.error(err);
+        console.error('Fetch messages error:', err);
       }
     };
     fetchMessages();
-    const interval = setInterval(fetchMessages, 5000);
+    const interval = setInterval(fetchMessages, 3000);
     return () => clearInterval(interval);
   }, [activeCommunity, currentUser]);
 
@@ -81,22 +71,14 @@ export default function MessagesPage() {
     setMessageText('');
 
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`/api/communities/${activeCommunity._id || activeCommunity.name}/messages`, {
-        method: 'POST',
-        headers: { 
-          'Content-Type': 'application/json',
-          'Authorization': `Bearer ${token}`
-        },
-        body: JSON.stringify({ text: currentText })
+      const newMessage = await apiClient.post(`/api/communities/${activeCommunity._id || activeCommunity.name}/messages`, { 
+        text: currentText 
       });
-      
-      if (res.ok) {
-        const newMessage = await res.json();
-        setMessages(prev => [...prev, newMessage]);
-      }
+      setMessages(prev => [...prev, newMessage]);
     } catch (err) {
-      console.error(err);
+      console.error('Send message error:', err);
+      alert(err.message || 'Mesaj gönderilemedi.');
+      setMessageText(currentText); // Restore text on failure
     }
   };
 
@@ -104,21 +86,11 @@ export default function MessagesPage() {
     if (!window.confirm('Bu mesajı silmek istediğinizden emin misiniz?')) return;
 
     try {
-      const token = localStorage.getItem('token');
-      const res = await fetch(`/api/messages/${messageId}`, {
-        method: 'DELETE',
-        headers: { 'Authorization': `Bearer ${token}` }
-      });
-      
-      if (res.ok) {
-        setMessages(prev => prev.filter(m => m._id !== messageId));
-      } else {
-        const data = await res.json();
-        alert(data.error || 'Mesaj silinemedi.');
-      }
+      await apiClient.delete(`/api/messages/${messageId}`);
+      setMessages(prev => prev.filter(m => m._id !== messageId));
     } catch (err) {
-      console.error(err);
-      alert('Bağlantı hatası.');
+      console.error('Delete error:', err);
+      alert(err.message || 'Mesaj silinemedi.');
     }
   };
 
