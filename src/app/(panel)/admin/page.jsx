@@ -21,7 +21,6 @@ export default function AdminPage() {
   const [editingId, setEditingId] = useState(null);
 
   useEffect(() => {
-  useEffect(() => {
     const checkAdmin = async () => {
       try {
         const data = await apiClient.get('/api/auth/me');
@@ -55,8 +54,6 @@ export default function AdminPage() {
     checkAdmin();
   }, [router]);
 
-    checkAdmin();
-  }, [router]);
 
   const handleEventSubmit = async (e) => {
     e.preventDefault();
