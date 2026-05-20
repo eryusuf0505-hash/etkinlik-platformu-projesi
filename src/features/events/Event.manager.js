@@ -36,6 +36,19 @@ export class EventManager extends BaseManager {
       throw new Error('Bu etkinliği güncelleme yetkiniz yok.');
     }
 
+    await connectToDatabase();
+    // Resolve category if it's a string name
+    if (typeof data.category === 'string' && !mongoose.isValidObjectId(data.category)) {
+        let category = await Category.findOne({ name: { $regex: new RegExp(`^${data.category}$`, 'i') } });
+        if (!category) {
+            category = await Category.create({ 
+                name: data.category, 
+                slug: data.category.toLowerCase().replace(/ /g, '-').replace(/[^\w-]+/g, '') || 'category'
+            });
+        }
+        data.category = category._id;
+    }
+
     return await this.repository.update(id, data);
   }
 }

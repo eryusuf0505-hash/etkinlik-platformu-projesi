@@ -30,8 +30,11 @@ export default function ExplorePage() {
       try {
         const queryParams = new URLSearchParams();
         if (filters.city) queryParams.append('city', filters.city);
+        queryParams.append('limit', '100');
         
-        const data = await apiClient.get(`/api/events?${queryParams.toString()}`);
+        const queryString = queryParams.toString();
+        const endpoint = `/api/events?${queryString}`;
+        const data = await apiClient.get(endpoint);
         let apiEvents = Array.isArray(data) ? data : (data.data || data.items || []);
         
         // Local category filtering if needed, but ideally backend should handle this

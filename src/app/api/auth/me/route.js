@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { verifyToken } from '@/shared/middleware/auth.js';
 import { UserRepository } from '@/features/auth/User.repository.js';
 import Participant from '@/features/events/Participant.model.js';
+import Community from '@/features/communities/Community.model.js'; // Register model
 
 const userRepository = new UserRepository();
 

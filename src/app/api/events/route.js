@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server';
 import { EventRepository } from '@/features/events/Event.repository.js';
 import { EventManager } from '@/features/events/Event.manager.js';
 import { verifyToken } from '@/shared/middleware/auth.js';
+import Community from '@/features/communities/Community.model.js'; // Register model
 
 const eventRepository = new EventRepository();
 const eventManager = new EventManager(eventRepository);
@@ -12,7 +13,7 @@ export async function GET(req) {
     const filters = {};
     
     const page = parseInt(searchParams.get('page')) || 1;
-    const limit = parseInt(searchParams.get('limit')) || 10;
+    const limit = parseInt(searchParams.get('limit')) || 100;
     
     let sort = { date: 1 };
     const sortParam = searchParams.get('sort');

@@ -8,47 +8,66 @@ const apiClient = {
     const token = typeof window !== 'undefined' ? localStorage.getItem('token') : null;
     
     const headers = {
-      'Content-Type': 'application/json',
       ...options.headers,
     };
+
+    if (options.body !== undefined && options.body !== null) {
+      headers['Content-Type'] = 'application/json';
+    }
 
     if (token) {
       headers['Authorization'] = `Bearer ${token}`;
     }
 
     const config = {
+      credentials: 'same-origin',
       ...options,
       headers,
     };
 
     try {
       const response = await fetch(endpoint, config);
-      
-      // Sadece 401 durumunda otomatik logout
+      const text = await response.text();
+      let data = {};
+
+      if (text) {
+        try {
+          data = JSON.parse(text);
+        } catch (parseError) {
+          data = { raw: text };
+        }
+      }
+
       if (response.status === 401) {
         if (typeof window !== 'undefined') {
           // localStorage.removeItem('token'); // Opsiyonel: Token'ı temizle
           // window.location.href = '/login'; // Sadece kritik durumlarda
         }
-        const errorData = await response.json().catch(() => ({}));
-        throw { status: 401, message: errorData.error || 'Oturum süresi doldu.', data: errorData };
+        const message = data.error || 'Oturum süresi doldu.';
+        const authError = new Error(message);
+        authError.status = 401;
+        authError.data = data;
+        throw authError;
       }
 
-      const data = await response.json().catch(() => ({}));
-
       if (!response.ok) {
-        throw { 
-          status: response.status, 
-          message: data.error || 'Bir hata oluştu.',
-          data 
-        };
+        const error = new Error(data.error || 'Bir hata oluştu.');
+        error.status = response.status;
+        error.data = data;
+        throw error;
       }
 
       return data;
     } catch (error) {
       // Network hataları veya fırlatılan objeler
       console.error(`API Error [${endpoint}]:`, error);
-      throw error;
+      if (error instanceof Error) {
+        throw error;
+      }
+      const wrappedError = new Error(error?.message || 'Bilinmeyen API hatası.');
+      wrappedError.status = error?.status;
+      wrappedError.data = error?.data;
+      throw wrappedError;
     }
   },
 

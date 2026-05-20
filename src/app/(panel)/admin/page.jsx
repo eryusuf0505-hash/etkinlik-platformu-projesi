@@ -5,6 +5,11 @@ import { useRouter } from 'next/navigation';
 import Navbar from '@/shared/components/Navbar';
 import apiClient from '@/shared/lib/apiClient';
 
+const PROVINCES = [
+  'Adana','Adıyaman','Afyonkarahisar','Ağrı','Amasya','Ankara','Antalya','Artvin','Aydın','Balıkesir','Bilecik','Bingöl','Bitlis','Bolu','Burdur','Bursa','Çanakkale','Çankırı','Çorum','Denizli','Diyarbakır','Edirne','Elazığ','Erzincan','Erzurum','Eskişehir','Gaziantep','Giresun','Gümüşhane','Hakkari','Hatay','Isparta','İstanbul','İzmir','Kars','Kastamonu','Kayseri','Kırklareli','Kırşehir','Kocaeli','Konya','Kütahya','Malatya','Manisa','Kahramanmaraş','Mardin','Muğla','Muş','Nevşehir','Niğde','Ordu','Rize','Sakarya','Samsun','Siirt','Sinop','Sivas','Tekirdağ','Tokat','Trabzon','Tunceli','Şanlıurfa','Uşak','Van','Yozgat','Zonguldak','Aksaray','Bayburt','Karaman','Kırıkkale','Batman','Şırnak','Bartın','Ardahan','Iğdır','Yalova','Karabük','Kilis','Osmaniye','Düzce'
+];
+
+const ADMIN_CATEGORIES = ['Konser', 'Seminer', 'Spor', 'Teknoloji', 'Sanat', 'Otomobil', 'Yaşam', 'Oyun'];
 
 export default function AdminPage() {
   const [activeTab, setActiveTab] = useState('event'); // 'event', 'community', or 'manage'
@@ -19,6 +24,13 @@ export default function AdminPage() {
   const [communityData, setCommunityData] = useState({ name: '', category: '', icon: '', description: '', memberCount: 1 });
   const [editMode, setEditMode] = useState(false);
   const [editingId, setEditingId] = useState(null);
+
+  const normalizeUrl = (url) => {
+    if (!url) return '';
+    const trimmed = url.trim();
+    if (/^https?:\/\//i.test(trimmed)) return trimmed;
+    return `https://${trimmed}`;
+  };
 
   useEffect(() => {
     const checkAdmin = async () => {
@@ -61,6 +73,7 @@ export default function AdminPage() {
     try {
       const payload = {
         ...eventData,
+        imageUrl: normalizeUrl(eventData.imageUrl),
         date: new Date(eventData.date).toISOString(),
         price: Number(eventData.price)
       };
@@ -240,11 +253,27 @@ export default function AdminPage() {
                 </div>
                 <div className="space-y-2">
                   <label className="block text-xs font-black text-gray-500 uppercase tracking-widest ml-1">Kategori</label>
-                  <input required type="text" placeholder="Örn: Konser, Teknoloji" className="w-full bg-white/5 border border-white/5 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/50" value={eventData.category} onChange={e => setEventData({...eventData, category: e.target.value})} />
+                  <div className="relative">
+                    <select required value={eventData.category} onChange={e => setEventData({...eventData, category: e.target.value})} className="w-full appearance-none bg-[#0f172a] border border-blue-500/25 rounded-[1.75rem] px-6 py-4 pr-12 text-sm text-white transition-all duration-200 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                      <option value="" disabled className="bg-[#0f172a] text-gray-400">Bir kategori seçin</option>
+                      {ADMIN_CATEGORIES.map((category) => (
+                        <option key={category} value={category} className="bg-[#0f172a] text-white">{category}</option>
+                      ))}
+                    </select>
+                    <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-blue-300 text-sm">▾</span>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <label className="block text-xs font-black text-gray-500 uppercase tracking-widest ml-1">Şehir</label>
-                  <input required type="text" className="w-full bg-white/5 border border-white/5 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/50" value={eventData.city} onChange={e => setEventData({...eventData, city: e.target.value})} />
+                  <div className="relative">
+                    <select required value={eventData.city} onChange={e => setEventData({...eventData, city: e.target.value})} className="w-full appearance-none bg-[#0f172a] border border-blue-500/25 rounded-[1.75rem] px-6 py-4 pr-12 text-sm text-white transition-all duration-200 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                      <option value="" disabled className="bg-[#0f172a] text-gray-400">Bir şehir seçin</option>
+                      {PROVINCES.map((city) => (
+                        <option key={city} value={city} className="bg-[#0f172a] text-white">{city}</option>
+                      ))}
+                    </select>
+                    <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-blue-300 text-sm">▾</span>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <label className="block text-xs font-black text-gray-500 uppercase tracking-widest ml-1">Tarih</label>
@@ -265,7 +294,8 @@ export default function AdminPage() {
 
               <div className="space-y-2">
                 <label className="block text-xs font-black text-gray-500 uppercase tracking-widest ml-1">Görsel URL</label>
-                <input required type="url" placeholder="https://..." className="w-full bg-white/5 border border-white/5 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/50" value={eventData.imageUrl} onChange={e => setEventData({...eventData, imageUrl: e.target.value})} />
+                <input required type="url" placeholder="https://.../resim.jpg" className="w-full bg-white/5 border border-white/5 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/50" value={eventData.imageUrl} onChange={e => setEventData({...eventData, imageUrl: e.target.value})} />
+                <p className="text-xs text-red-400 mt-1 ml-1 font-medium">⚠️ Lütfen web sayfası linki değil, doğrudan resim linki yapıştırın (Sağ tık -{'>'} Resim adresini kopyala). Link genellikle .jpg veya .png ile biter.</p>
               </div>
 
               <div className="space-y-2">
@@ -299,7 +329,15 @@ export default function AdminPage() {
                 </div>
                 <div className="space-y-2">
                   <label className="block text-xs font-black text-gray-500 uppercase tracking-widest ml-1">Kategori</label>
-                  <input required type="text" placeholder="Örn: Teknoloji, Sanat" className="w-full bg-white/5 border border-white/5 rounded-2xl px-6 py-4 text-sm focus:outline-none focus:ring-2 focus:ring-red-500/50" value={communityData.category} onChange={e => setCommunityData({...communityData, category: e.target.value})} />
+                  <div className="relative">
+                    <select required value={communityData.category} onChange={e => setCommunityData({...communityData, category: e.target.value})} className="w-full appearance-none bg-[#0f172a] border border-blue-500/25 rounded-[1.75rem] px-6 py-4 pr-12 text-sm text-white transition-all duration-200 focus:outline-none focus:border-blue-400 focus:ring-2 focus:ring-blue-400/20 shadow-[inset_0_1px_0_rgba(255,255,255,0.04)]">
+                      <option value="" disabled className="bg-[#0f172a] text-gray-400">Bir kategori seçin</option>
+                      {ADMIN_CATEGORIES.map((category) => (
+                        <option key={category} value={category} className="bg-[#0f172a] text-white">{category}</option>
+                      ))}
+                    </select>
+                    <span className="pointer-events-none absolute inset-y-0 right-4 flex items-center text-blue-300 text-sm">▾</span>
+                  </div>
                 </div>
                 <div className="space-y-2">
                   <label className="block text-xs font-black text-gray-500 uppercase tracking-widest ml-1">İkon (Emoji vb.)</label>
@@ -332,7 +370,7 @@ export default function AdminPage() {
                     <div key={event._id} className="flex items-center justify-between p-4 bg-white/5 rounded-2xl border border-white/5 hover:bg-white/10 transition-all">
                       <div className="flex items-center gap-4">
                         <div className="w-12 h-12 rounded-xl bg-gray-800 overflow-hidden">
-                          <img src={event.imageUrl} className="w-full h-full object-cover" alt="" />
+                          <img src={event.imageUrl} className="w-full h-full object-cover" alt="" referrerPolicy="no-referrer" />
                         </div>
                         <div>
                           <p className="font-bold text-white text-sm">{event.title}</p>

@@ -1,14 +1,22 @@
 'use client';
 
+import { useState } from 'react';
+
 export default function EventCard({ event }) {
+  const [imgError, setImgError] = useState(false);
+
+  const showImage = event.imageUrl && !imgError;
+
   return (
     <div className="group relative glass rounded-[2.5rem] overflow-hidden hover:scale-[1.02] transition-all duration-500 hover:shadow-blue-500/10">
       <div className="aspect-[16/10] w-full bg-gray-800 relative overflow-hidden">
-        {event.imageUrl ? (
+        {showImage ? (
           <img 
             src={event.imageUrl} 
             alt={event.title}
             className="w-full h-full object-cover group-hover:scale-110 transition-transform duration-700"
+            referrerPolicy="no-referrer"
+            onError={() => setImgError(true)}
           />
         ) : (
           <div className="w-full h-full flex items-center justify-center bg-gradient-to-br from-gray-800 to-gray-900">
